@@ -8,7 +8,7 @@ const Navbar = () => {
     <nav className="navbar navbar-expand-lg navbar-dark bg-primary sticky-top">
       <div className="container">
         <Link to="/" className="navbar-brand fw-bold">
-          AI Student Recommendation
+          AI-Powered Student Career Recommendation 
         </Link>
 
         <button

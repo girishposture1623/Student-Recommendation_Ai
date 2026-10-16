@@ -3,7 +3,7 @@ const Footer = () => {
     <footer className="bg-dark text-white py-4 mt-5">
       <div className="container text-center">
         <p className="mb-1 fw-semibold">
-          AI-Powered Student Recommendation System
+          AI-Powered Student Career Recommendation System
         </p>
 
         <p className="mb-0 text-secondary">
