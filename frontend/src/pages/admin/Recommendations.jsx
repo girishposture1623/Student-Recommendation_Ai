@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -10,6 +11,8 @@ const Recommendations = () => {
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     loadRecommendations();
@@ -17,17 +20,23 @@ const Recommendations = () => {
 
   const loadRecommendations = async () => {
     try {
-      const data = await getAllRecommendations();
+      setLoading(true);
+      setError("");
+
+      const response = await getAllRecommendations();
+      const data = response?.data ?? response;
 
       if (!data.success) {
-        setError(data.message);
+        setError(
+          data.message || "Unable to load recommendations"
+        );
         return;
       }
 
       setRecommendations(data.recommendations || []);
-    } catch (error) {
+    } catch (err) {
       setError(
-        error.response?.data?.message ||
+        err.response?.data?.message ||
           "Unable to load recommendations"
       );
     } finally {
@@ -40,128 +49,458 @@ const Recommendations = () => {
       "Are you sure you want to delete this recommendation?"
     );
 
-    if (!confirmDelete) {
-      return;
-    }
+    if (!confirmDelete) return;
 
     try {
-      const data = await deleteRecommendation(id);
+      setDeletingId(id);
+      setError("");
+
+      const response = await deleteRecommendation(id);
+      const data = response?.data ?? response;
 
       if (!data.success) {
-        setError(data.message);
+        setError(
+          data.message || "Unable to delete recommendation"
+        );
         return;
       }
 
       setRecommendations((prev) =>
         prev.filter((item) => item._id !== id)
       );
-    } catch (error) {
+    } catch (err) {
       setError(
-        error.response?.data?.message ||
+        err.response?.data?.message ||
           "Unable to delete recommendation"
       );
+    } finally {
+      setDeletingId(null);
     }
   };
 
+  const filteredRecommendations = recommendations.filter(
+    (item) => {
+      const career = item.career || "";
+      const name = item.userId?.name || "";
+      const email = item.userId?.email || "";
+
+      const searchText = search.toLowerCase();
+
+      return (
+        career.toLowerCase().includes(searchText) ||
+        name.toLowerCase().includes(searchText) ||
+        email.toLowerCase().includes(searchText)
+      );
+    }
+  );
+
   if (loading) {
     return (
-      <div className="container mt-5">
-        <p>Loading recommendations...</p>
+      <div className="container py-5 text-center">
+        <div
+          className="spinner-border text-primary"
+          role="status"
+        ></div>
+
+        <p className="text-muted mt-3">
+          Loading AI recommendations...
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="container mt-5 mb-5">
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2>AI Recommendations</h2>
+    <div className="bg-light min-vh-100 py-4">
+      <div className="container">
 
-        <Link
-          to="/admin/dashboard"
-          className="btn btn-outline-secondary"
-        >
-          Back to Dashboard
-        </Link>
+        {/* Header */}
+        <div className="card border-0 shadow-sm mb-4">
+          <div className="card-body p-4">
+
+            <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
+
+              <div>
+                <span className="badge bg-primary mb-2">
+                  ADMIN PANEL
+                </span>
+
+                <h2 className="fw-bold mb-1">
+                  AI Recommendations
+                </h2>
+
+                <p className="text-muted mb-0">
+                  View, search and manage AI-generated
+                  student career recommendations.
+                </p>
+              </div>
+
+              <Link
+                to="/admin/dashboard"
+                className="btn btn-outline-primary"
+              >
+                <i className="bi bi-arrow-left me-2"></i>
+                Back to Dashboard
+              </Link>
+
+            </div>
+          </div>
+        </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="alert alert-danger">
+            <i className="bi bi-exclamation-triangle me-2"></i>
+            {error}
+          </div>
+        )}
+
+        {/* Statistics Cards */}
+        <div className="row g-3 mb-4">
+
+          <div className="col-md-4">
+            <div className="card border-0 shadow-sm h-100">
+              <div className="card-body d-flex align-items-center gap-3">
+
+                <div
+                  className="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                  style={{ width: 55, height: 55 }}
+                >
+                  <i className="bi bi-lightbulb-fill fs-4"></i>
+                </div>
+
+                <div>
+                  <h3 className="fw-bold mb-0">
+                    {recommendations.length}
+                  </h3>
+
+                  <small className="text-muted">
+                    Total Recommendations
+                  </small>
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+          <div className="col-md-4">
+            <div className="card border-0 shadow-sm h-100">
+              <div className="card-body d-flex align-items-center gap-3">
+
+                <div
+                  className="bg-success bg-opacity-10 text-success rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                  style={{ width: 55, height: 55 }}
+                >
+                  <i className="bi bi-person-check-fill fs-4"></i>
+                </div>
+
+                <div>
+                  <h3 className="fw-bold mb-0">
+                    {
+                      new Set(
+                        recommendations
+                          .map((item) => item.userId?._id)
+                          .filter(Boolean)
+                          .map(String)
+                      ).size
+                    }
+                  </h3>
+
+                  <small className="text-muted">
+                    Linked Students
+                  </small>
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+          <div className="col-md-4">
+            <div className="card border-0 shadow-sm h-100">
+              <div className="card-body d-flex align-items-center gap-3">
+
+                <div
+                  className="bg-warning bg-opacity-10 text-warning rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                  style={{ width: 55, height: 55 }}
+                >
+                  <i className="bi bi-search fs-4"></i>
+                </div>
+
+                <div>
+                  <h3 className="fw-bold mb-0">
+                    {filteredRecommendations.length}
+                  </h3>
+
+                  <small className="text-muted">
+                    Matching Records
+                  </small>
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Recommendations Table */}
+        <div className="card border-0 shadow-sm">
+
+          <div className="card-body p-4">
+
+            <div className="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+
+              <div>
+                <h4 className="fw-bold mb-1">
+                  All Recommendations
+                </h4>
+
+                <p className="text-muted small mb-0">
+                  Student career suggestions generated by AI.
+                </p>
+              </div>
+
+              <div
+                className="input-group"
+                style={{ maxWidth: 350 }}
+              >
+                <span className="input-group-text bg-white">
+                  <i className="bi bi-search"></i>
+                </span>
+
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Search career, student, email..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+
+            </div>
+
+            {filteredRecommendations.length === 0 ? (
+
+              <div className="text-center py-5">
+
+                <i className="bi bi-lightbulb fs-1 text-secondary"></i>
+
+                <h5 className="fw-bold mt-3">
+                  {recommendations.length === 0
+                    ? "No Recommendations Found"
+                    : "No Matching Recommendations"}
+                </h5>
+
+                <p className="text-muted mb-0">
+                  {recommendations.length === 0
+                    ? "Generated AI recommendations will appear here."
+                    : "Try searching with a different keyword."}
+                </p>
+
+              </div>
+
+            ) : (
+
+              <div className="table-responsive">
+
+                <table className="table table-hover align-middle">
+
+                  <thead className="table-primary">
+                    <tr>
+                      <th className="py-3">#</th>
+                      <th className="py-3">Student Details</th>
+                      <th className="py-3">Recommended Career</th>
+                      <th className="py-3">Match Score</th>
+                      <th className="py-3">Recommended Skills</th>
+                      <th className="py-3">Explanation</th>
+                      <th className="py-3">Learning Path</th>
+                      <th className="py-3">Created At</th>
+                      <th className="py-3 text-center">Action</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+
+                    {filteredRecommendations.map((item, index) => (
+
+                      <tr key={item._id}>
+
+                        {/* Serial Number */}
+                        <td className="fw-semibold text-muted">
+                          {index + 1}
+                        </td>
+
+                        {/* Student Details */}
+                        <td style={{ minWidth: 210 }}>
+
+                          <div className="d-flex align-items-center gap-2">
+
+                            <div
+                              className="rounded-circle bg-primary bg-opacity-10 text-primary d-flex align-items-center justify-content-center fw-bold flex-shrink-0"
+                              style={{
+                                width: 42,
+                                height: 42,
+                              }}
+                            >
+                              {(item.userId?.name || "S")
+                                .charAt(0)
+                                .toUpperCase()}
+                            </div>
+
+                            <div>
+                              <div className="fw-bold">
+                                {item.userId?.name || "Name unavailable"}
+                              </div>
+
+                              <small className="text-muted">
+                                {item.userId?.email || "Email unavailable"}
+                              </small>
+                            </div>
+
+                          </div>
+
+                        </td>
+
+                        {/* Career */}
+                        <td style={{ minWidth: 160 }}>
+                          <span className="fw-bold text-primary">
+                            {item.career || "-"}
+                          </span>
+                        </td>
+
+                        {/* Match Score */}
+                        <td style={{ minWidth: 120 }}>
+
+                          {item.matchScore != null ? (
+                            <>
+                              <span className="badge bg-success bg-opacity-10 text-success px-3 py-2">
+                                {item.matchScore}%
+                              </span>
+
+                              <div
+                                className="progress mt-2"
+                                style={{ height: 6 }}
+                              >
+                                <div
+                                  className="progress-bar bg-success"
+                                  role="progressbar"
+                                  style={{
+                                    width: `${Math.min(
+                                      100,
+                                      Math.max(0, Number(item.matchScore) || 0)
+                                    )}%`,
+                                  }}
+                                ></div>
+                              </div>
+                            </>
+                          ) : (
+                            "-"
+                          )}
+
+                        </td>
+
+                        {/* Recommended Skills */}
+                        <td style={{ minWidth: 180 }}>
+                          {item.recommendedSkills?.length ? (
+                            <div className="d-flex flex-wrap gap-1">
+                              {item.recommendedSkills.map(
+                                (skill, i) => (
+                                  <span
+                                    key={i}
+                                    className="badge bg-primary bg-opacity-10 text-primary"
+                                  >
+                                    {skill}
+                                  </span>
+                                )
+                              )}
+                            </div>
+                          ) : (
+                            "-"
+                          )}
+                        </td>
+
+                        {/* Explanation */}
+                        <td style={{ minWidth: 230, maxWidth: 280 }}>
+                          <div
+                            className="text-muted small"
+                            style={{
+                              whiteSpace: "normal",
+                              overflowWrap: "anywhere",
+                            }}
+                          >
+                            {item.explanation || "-"}
+                          </div>
+                        </td>
+
+                        {/* Learning Path */}
+                        <td style={{ minWidth: 220 }}>
+                          {item.learningPath?.length ? (
+                            <ol className="mb-0 ps-3 small">
+                              {item.learningPath.map(
+                                (step, i) => (
+                                  <li key={i} className="mb-1">
+                                    {step}
+                                  </li>
+                                )
+                              )}
+                            </ol>
+                          ) : (
+                            "-"
+                          )}
+                        </td>
+
+                        {/* Created At */}
+                        <td style={{ minWidth: 150 }}>
+                          <small className="text-muted">
+                            {item.createdAt
+                              ? new Date(
+                                  item.createdAt
+                                ).toLocaleString()
+                              : "-"}
+                          </small>
+                        </td>
+
+                        {/* Delete */}
+                        <td className="text-center">
+                          <button
+                            className="btn btn-sm btn-outline-danger"
+                            disabled={deletingId === item._id}
+                            onClick={() => handleDelete(item._id)}
+                          >
+                            {deletingId === item._id ? (
+                              <span className="spinner-border spinner-border-sm"></span>
+                            ) : (
+                              <>
+                                <i className="bi bi-trash me-1"></i>
+                                Delete
+                              </>
+                            )}
+                          </button>
+                        </td>
+
+                      </tr>
+
+                    ))}
+
+                  </tbody>
+
+                </table>
+
+              </div>
+
+            )}
+
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="text-center py-4">
+          <small className="text-muted">
+            AI-Powered Student Career Recommendation System
+            <br />
+            Admin Panel | AI Recommendations Management
+          </small>
+        </div>
+
       </div>
-
-      {error && (
-        <div className="alert alert-danger">
-          {error}
-        </div>
-      )}
-
-      {recommendations.length === 0 ? (
-        <div className="alert alert-info">
-          No recommendations found.
-        </div>
-      ) : (
-        <div className="table-responsive">
-          <table className="table table-bordered table-hover align-middle">
-            <thead className="table-dark">
-              <tr>
-                <th>Career</th>
-                <th>Match Score</th>
-                <th>Recommended Skills</th>
-                <th>Explanation</th>
-                <th>Learning Path</th>
-                <th>Created At</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {recommendations.map((item) => (
-                <tr key={item._id}>
-                  <td>
-                    <strong>{item.career}</strong>
-                  </td>
-
-                  <td>{item.matchScore}%</td>
-
-                  <td>
-                    {item.recommendedSkills?.join(", ") || "-"}
-                  </td>
-
-                  <td>{item.explanation}</td>
-
-                  <td>
-                    {item.learningPath?.length ? (
-                      <ol className="mb-0">
-                        {item.learningPath.map(
-                          (step, index) => (
-                            <li key={index}>{step}</li>
-                          )
-                        )}
-                      </ol>
-                    ) : (
-                      "-"
-                    )}
-                  </td>
-
-                  <td>
-                    {item.createdAt
-                      ? new Date(
-                          item.createdAt
-                        ).toLocaleString()
-                      : "-"}
-                  </td>
-
-                  <td>
-                    <button
-                      className="btn btn-sm btn-danger"
-                      onClick={() =>
-                        handleDelete(item._id)
-                      }
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
     </div>
   );
 };

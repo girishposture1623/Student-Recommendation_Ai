@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { GoogleLogin } from "@react-oauth/google";
@@ -17,6 +18,15 @@ const Login = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Redirect according to user role
+  const redirectUser = (user) => {
+    if (user?.role?.toLowerCase() === "admin") {
+      navigate("/admin/dashboard", { replace: true });
+    } else {
+      navigate("/dashboard", { replace: true });
+    }
+  };
+
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -24,26 +34,24 @@ const Login = () => {
     });
   };
 
+  // Normal Login
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
     try {
-      const data = await loginUser(formData);
+      const response = await loginUser(formData);
+      const data = response?.data ?? response;
 
       if (!data.success) {
-        setError(data.message);
+        setError(data.message || "Login failed");
         return;
       }
 
       login(data);
+      redirectUser(data.user);
 
-      if (data.user.role === "admin") {
-        navigate("/admin/dashboard");
-      } else {
-        navigate("/dashboard");
-      }
     } catch (error) {
       setError(
         error.response?.data?.message ||
@@ -54,22 +62,26 @@ const Login = () => {
     }
   };
 
+  // Google Login
   const handleGoogleSuccess = async (credentialResponse) => {
     setError("");
     setLoading(true);
 
     try {
-      const data = await googleLogin(
+      const response = await googleLogin(
         credentialResponse.credential
       );
 
+      const data = response?.data ?? response;
+
       if (!data.success) {
-        setError(data.message);
+        setError(data.message || "Google login failed");
         return;
       }
 
       login(data);
-      navigate("/dashboard");
+      redirectUser(data.user);
+
     } catch (error) {
       setError(
         error.response?.data?.message ||
@@ -81,11 +93,12 @@ const Login = () => {
   };
 
   return (
-    <div className="container mt-5">
+    <div className="container mt-5 mb-5">
       <div className="row justify-content-center">
         <div className="col-md-5">
           <div className="card shadow">
             <div className="card-body p-4">
+
               <h2 className="text-center mb-4">Login</h2>
 
               {error && (
@@ -95,6 +108,7 @@ const Login = () => {
               )}
 
               <form onSubmit={handleSubmit}>
+
                 <div className="mb-3">
                   <label className="form-label">Email</label>
                   <input
@@ -103,6 +117,7 @@ const Login = () => {
                     className="form-control"
                     value={formData.email}
                     onChange={handleChange}
+                    placeholder="Enter your email"
                     required
                   />
                 </div>
@@ -115,6 +130,7 @@ const Login = () => {
                     className="form-control"
                     value={formData.password}
                     onChange={handleChange}
+                    placeholder="Enter your password"
                     required
                   />
                 </div>
@@ -126,10 +142,11 @@ const Login = () => {
                 >
                   {loading ? "Logging in..." : "Login"}
                 </button>
+
               </form>
 
               <div className="text-center my-3">
-                OR
+                <span className="text-muted">OR</span>
               </div>
 
               <div className="d-flex justify-content-center">
@@ -151,6 +168,7 @@ const Login = () => {
                 Don't have an account?{" "}
                 <Link to="/register">Register</Link>
               </div>
+
             </div>
           </div>
         </div>
